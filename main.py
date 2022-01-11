@@ -116,7 +116,7 @@ def main():
 
 
 if __name__ == "__main__":
-    convert_ui_to_py()
+    #convert_ui_to_py()
     from GUI import *
 
     main()
