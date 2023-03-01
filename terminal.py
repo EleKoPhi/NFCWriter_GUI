@@ -125,11 +125,11 @@ class Terminal(QObject):
         self.service = True
 
     def setPage1(self):
-        self.output("Set active page to 4")
+        self.output("Set active page to 5")
         self.page_setting = 5
 
     def setPage2(self):
-        self.output("Set active page to 5")
+        self.output("Set active page to 4")
         self.page_setting = 4
 
     def connect_to_hardware(self):
