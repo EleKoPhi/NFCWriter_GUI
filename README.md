@@ -1,1 +1,1 @@
-![image](ReducedInterface.png)
+![image](/ReducedInterface.png)
