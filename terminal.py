@@ -1,18 +1,17 @@
-import serial.tools.list_ports
-from PyQt5.QtCore import pyqtSignal, QObject
+
 from PyQt5 import *
+from PyQt5.QtCore import pyqtSignal, QObject
 from PyQt5.QtWidgets import QMessageBox, QInputDialog
 from PyQt5.QtWidgets import QApplication, QWidget, QInputDialog, QLineEdit
-import sqlite3, os
 
+import os
+import serial.tools.list_ports
 import random
 import time
 
 reply_time = 0.1
 unknown_txt = "unknown"
 unknown_no = -1
-
-
 
 # noinspection PyBroadException
 class Terminal(QObject):
@@ -25,14 +24,13 @@ class Terminal(QObject):
     write_to_chip_flag = False
     loopfinished = False
     ActiveCardId_old = None
-
     information_known = False
 
     card_is_present = False
     card_is_present_counter = 0
 
     ActiveCardCredit_1 = unknown_no
-    ActiveCardCredit_2 = unknown_no
+
     ActiveCardId = unknown_txt
     ActiveCardIdName = unknown_txt
 
@@ -69,68 +67,22 @@ class Terminal(QObject):
         None
         #self.save_data_base()
 
-    def save_data_base(self):
-        print("Close connection")
-        self.connection.close()
-        self.databaseclosed = True
-
-    def check_if_id_is_known(self, user_id):
-
-        sql = "SELECT COUNT(*) FROM user WHERE id = %s" % user_id
-
-        self.cursor.execute(sql)
-        count = self.cursor.fetchone()[0]
-
-        if count >= 1:
-            return True
-        else:
-            return False
-
-    def store_new_user(self, name):
-        self.ActiveCardIdName = name
-        self.store = True
-
-
-    def sqlwrite(self):
-
-        sql = "INSERT INTO user VALUES('%s', %s)" % (str(self.ActiveCardIdName), str(self.ActiveCardId))
-        self.cursor.execute(sql)
-        self.connection.commit()
-        self.store = False
-
-
-    def get_name_by_id(self, user_id):
-
-        sql = "SELECT * FROM user WHERE id = %s" % user_id
-        self.ActiveCardIdName = self.cursor.execute(sql).fetchone()[0]
-
-        return self.ActiveCardIdName
-
     def output(self, txt):
         self.system_output = txt
         self.UpdateUi.emit()
 
-    def setValue1(self):
+    def setValue(self):
         self.output("Set value to 50ct/unit")
         self.credit_setting = 0.5
-        self.service = False
-
-    def setValue2(self):
-        self.output("Set value to 30ct/unit")
-        self.credit_setting = 0.3
         self.service = False
 
     def setValueService(self):
         self.output("Set value to service")
         self.service = True
 
-    def setPage1(self):
+    def setPage(self):
         self.output("Set active page to 5")
         self.page_setting = 5
-
-    def setPage2(self):
-        self.output("Set active page to 4")
-        self.page_setting = 4
 
     def connect_to_hardware(self):
         ports = serial.tools.list_ports.comports()
@@ -204,10 +156,7 @@ class Terminal(QObject):
         if self.service:
             credit = self.value
         else:
-            if self.page_setting == 4:
-                credit = int(self.ActiveCardCredit_2) + int(self.value / self.credit_setting)
-            if self.page_setting == 5:
-                credit = int(self.ActiveCardCredit_1) + int(self.value / self.credit_setting)
+            credit = int(self.ActiveCardCredit_1) + int(self.value / self.credit_setting)
 
         cmd = (str(self.page_setting) + "_WriteCredit_" + str(credit)).encode('utf-8')
         counter = 0
@@ -230,7 +179,7 @@ class Terminal(QObject):
                 self.is_checking = True
                 return False
 
-    def reset_1(self):
+    def reset(self):
         self.is_checking = False
 
         if self.show_reset:
@@ -238,7 +187,7 @@ class Terminal(QObject):
             self.card_init()
             return
 
-        self.output("Reset Page 1")
+        self.output("Reset Page")
         time.sleep(0.5)
 
         counter = 0
@@ -246,37 +195,6 @@ class Terminal(QObject):
         while True:
 
             self.serial_reply = self.handle_command(b'5_Reset')
-            self.output(self.serial_reply)
-
-            if str(self.serial_reply).endswith("_0'"):
-                self.output("Write OK!")
-                self.is_checking = True
-                return True
-            else:
-                self.output("Writing to card...")
-                counter += 1
-
-            if counter >= 5:
-                self.output("Write not OK!")
-                self.is_checking = True
-                return False
-
-    def reset_2(self):
-        self.is_checking = False
-
-        if self.show_reset:
-            self.output("Initialize unkown chip")
-            self.card_init()
-            return
-
-        self.output("Reset Page 2")
-        time.sleep(0.5)
-
-        counter = 0
-
-        while True:
-
-            self.serial_reply = self.handle_command(b'4_Reset')
             self.output(self.serial_reply)
 
             if str(self.serial_reply).endswith("_0'"):
@@ -303,9 +221,6 @@ class Terminal(QObject):
 
         self.connect_to_hardware()
 
-        self.connection = sqlite3.connect("user.db")
-        self.cursor = self.connection.cursor()
-
         if self.hardware_connected:
             self.is_running = True
         else:
@@ -322,23 +237,12 @@ class Terminal(QObject):
                         continue
                     self.ActiveCardId = split_information[0]
 
-                    if self.check_if_id_is_known(str(self.ActiveCardId)):
-                        self.user_name = self.get_name_by_id(str(self.ActiveCardId))
-                    else:
-                        if self.ActiveCardId != self.ActiveCardId_old:
-                            self.ShowPopup.emit()
-                            self.ActiveCardId_old = self.ActiveCardId
-
                     self.ActiveCardCredit_1 = split_information[1]
-                    self.ActiveCardCredit_2 = split_information[2]
 
-                    if int(self.ActiveCardCredit_1) == -1 and int(self.ActiveCardCredit_2) == -1:
+                    if int(self.ActiveCardCredit_1) == -1:
                         self.show_reset = True
                     else:
                         self.show_reset = False
-
-                    if self.store:
-                        self.sqlwrite()
 
                     self.UpdateUi.emit()
                 self.loopfinished = True
